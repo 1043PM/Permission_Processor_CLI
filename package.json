@@ -1,0 +1,11 @@
+{
+  "name": "salesforce-documentator",
+  "version": "1.0.0",
+  "description": "salesforce npm tool to create automatic documentation",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "AlexSanchez",
+  "license": "ISC"
+}
