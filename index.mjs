@@ -13,14 +13,16 @@ import chalk from 'chalk';
 const program = new Command();
 
 program
-  .version('1.0.0')
+  .version('1.1.0')
   .description('CLI tool to process permission files and generate an Excel report')
   .option('-p, --path <path>', 'Path to permission files', './permissionsets')
-  .option('-g, --glob <pattern>', 'Glob pattern to select files', '**/*.permissionset-meta.xml')
+  .option('-g, --glob <pattern>', 'Glob pattern to select permission files', '**/*.permissionset-meta.xml')
   .option('-o, --output <file>', 'Output Excel file', './csv/permissions.xlsx')
   .option('-t, --true-icon <icon>', 'Icon representing true value', '✔')
   .option('-f, --false-icon <icon>', 'Icon representing false value', '✖')
   .option('-c, --config <file>', 'Configuration file in JSON format')
+  .option('-l, --use-labels', 'Use labels instead of API names', false)
+  .option('--object-meta-path <path>', 'Path to custom object metadata files', './objects')
   .parse(process.argv);
 
 // Main function
@@ -47,10 +49,17 @@ program
     // Merge configuration options with command-line options
     const finalOptions = { ...configOptions, ...options };
 
-    // Validate that the path exists
+    // Validate that the paths exist
     if (!existsSync(finalOptions.path)) {
-      console.error(chalk.red(`Specified path does not exist: ${finalOptions.path}`));
+      console.error(chalk.red(`Specified permission files path does not exist: ${finalOptions.path}`));
       process.exit(1);
+    }
+
+    if (finalOptions.useLabels) {
+      if (!existsSync(finalOptions.objectMetaPath)) {
+        console.error(chalk.red(`Specified object metadata path does not exist: ${finalOptions.objectMetaPath}`));
+        process.exit(1);
+      }
     }
 
     // Normalize paths to use forward slashes
@@ -60,7 +69,7 @@ program
     // Build the glob pattern using forward slashes
     const filesPattern = `${normalizedPath}/${normalizedGlob}`;
 
-    console.log(`Searching for files with pattern: ${filesPattern}`);
+    console.log(`Searching for permission files with pattern: ${filesPattern}`);
 
     const permissionFiles = await glob(filesPattern);
 
@@ -70,6 +79,17 @@ program
     }
 
     console.log(chalk.green(`Found ${permissionFiles.length} permission files.`));
+
+    // Initialize mappings for labels if needed
+    let objectLabels = new Map();
+    let fieldLabels = new Map();
+
+    if (finalOptions.useLabels) {
+      console.log(chalk.blue('Collecting object and field labels...'));
+      objectLabels = await collectObjectLabels(finalOptions.objectMetaPath);
+      fieldLabels = await collectFieldLabels(finalOptions.objectMetaPath);
+      console.log(chalk.green('Labels collected successfully.'));
+    }
 
     const workbook = new ExcelJS.Workbook();
 
@@ -90,7 +110,7 @@ program
       }
 
       // Convert permissions into a flat structure
-      const flatPermissions = getFlatPermissions(formattedPermissions, finalOptions);
+      const flatPermissions = getFlatPermissions(formattedPermissions, finalOptions, objectLabels, fieldLabels);
 
       // Add a new worksheet to the Excel workbook
       const currentWorkSheet = workbook.addWorksheet(permissionSetName);
@@ -160,10 +180,12 @@ async function getFormattedPermissions(filePath) {
 }
 
 // Function to convert permissions into a flat structure
-function getFlatPermissions(formattedPermissions, options) {
+function getFlatPermissions(formattedPermissions, options, objectLabels, fieldLabels) {
   return formattedPermissions.flatMap(permission => {
+    const objectName = options.useLabels ? (objectLabels.get(permission.name) || permission.name) : permission.name;
+
     const baseRow = [
-      permission.name,
+      objectName,
       '',
       formatIcon(permission.allowEdit, options),
       formatIcon(permission.allowRead, options),
@@ -174,12 +196,19 @@ function getFlatPermissions(formattedPermissions, options) {
     ];
 
     // Generate rows for field permissions
-    const fieldRows = permission.fieldPermissions.map(field => [
-      '',
-      field.field,
-      formatIcon(field.editable, options),
-      formatIcon(field.readable, options),
-    ]);
+    const fieldRows = permission.fieldPermissions.map(field => {
+      const fieldKey = `${permission.name}.${field.field}`;
+      const fieldName = options.useLabels
+        ? (fieldLabels.get(fieldKey) || field.field)
+        : field.field;
+
+      return [
+        '',
+        fieldName,
+        formatIcon(field.editable, options),
+        formatIcon(field.readable, options),
+      ];
+    });
 
     // Combine the base row with field rows
     return [baseRow, ...fieldRows, []]; // Add an empty row to separate objects
@@ -242,6 +271,59 @@ function mergePermissions(fieldPermissions, objectPermissions) {
   }
 
   return mergedPermissions;
+}
+
+// Function to collect object labels from SFDX source format
+async function collectObjectLabels(objectMetaPath) {
+  const objectLabels = new Map();
+  const normalizedPath = objectMetaPath.replace(/\\/g, '/');
+  const filesPattern = `${normalizedPath}/**/*.object-meta.xml`;
+
+  const objectFiles = await glob(filesPattern);
+
+  for (const filePath of objectFiles) {
+    try {
+      const data = await fs.readFile(filePath, 'utf8');
+      const parser = new xml2js.Parser();
+      const result = await parser.parseStringPromise(data);
+
+      const apiName = path.basename(path.dirname(filePath)); // Get the folder name as the API name
+      const label = result.CustomObject.label[0];
+
+      objectLabels.set(apiName, label);
+    } catch (error) {
+      console.warn(chalk.yellow(`Failed to parse object metadata file: ${filePath}`));
+    }
+  }
+
+  return objectLabels;
+}
+
+// Function to collect field labels from SFDX source format
+async function collectFieldLabels(objectMetaPath) {
+  const fieldLabels = new Map();
+  const normalizedPath = objectMetaPath.replace(/\\/g, '/');
+  const fieldsPattern = `${normalizedPath}/**/fields/*.field-meta.xml`;
+
+  const fieldFiles = await glob(fieldsPattern);
+
+  for (const filePath of fieldFiles) {
+    try {
+      const data = await fs.readFile(filePath, 'utf8');
+      const parser = new xml2js.Parser();
+      const result = await parser.parseStringPromise(data);
+
+      const objectApiName = path.basename(path.dirname(path.dirname(filePath))); // Get the object folder name
+      const fieldApiName = path.basename(filePath, '.field-meta.xml');
+      const label = result.CustomField.label[0];
+
+      fieldLabels.set(`${objectApiName}.${fieldApiName}`, label);
+    } catch (error) {
+      console.warn(chalk.yellow(`Failed to parse field metadata file: ${filePath}`));
+    }
+  }
+
+  return fieldLabels;
 }
 
 // Function to sanitize the Excel worksheet name
