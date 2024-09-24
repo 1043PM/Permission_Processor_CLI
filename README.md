@@ -40,17 +40,17 @@ Permission Processor CLI is a command-line tool designed to process Salesforce p
 
    Navigate to the directory containing the script and install the required npm packages:
 
-   \`\`\`bash
+   ```bash
    npm install commander exceljs xml2js glob chalk
-   \`\`\`
+   ```
 
 3. **Make the Script Executable (Optional)**
 
    If you want to run the script directly:
 
-   \`\`\`bash
+   ```bash
    chmod +x permissionProcessor.js
-   \`\`\`
+   ```
 
 ## Usage
 
@@ -58,7 +58,7 @@ The tool can be run using Node.js from the command line. It provides various opt
 
 ### Command-Line Options
 
-\`\`\`bash
+```bash
 Usage: permissionProcessor.js [options]
 
 CLI tool to process permission files and generate an Excel report
@@ -74,13 +74,13 @@ Options:
   -l, --use-labels                   Use labels instead of API names (default: false)
   --object-meta-path <path>          Path to custom object metadata files (default: "./objects")
   --help                             Display help for command
-\`\`\`
+```
 
 ### Configuration File
 
 You can use a configuration file in JSON format to specify options:
 
-\`\`\`json
+```json
 {
   "path": "./permissionsets",
   "glob": "**/*.permissionset-meta.xml",
@@ -90,13 +90,13 @@ You can use a configuration file in JSON format to specify options:
   "useLabels": true,
   "objectMetaPath": "./objects"
 }
-\`\`\`
+```
 
 To run the script with a configuration file:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js --config config.json
-\`\`\`
+```
 
 **Note**: Command-line options override options specified in the configuration file.
 
@@ -106,41 +106,41 @@ node permissionProcessor.js --config config.json
 
 Process permission sets using default options:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js
-\`\`\`
+```
 
 ### Specify Custom Paths
 
 Process permission sets from a custom directory and output to a specific file:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js --path ./myPermissions --output ./output/permissions.xlsx
-\`\`\`
+```
 
 ### Use Labels Instead of API Names
 
 Include labels for objects and fields in the report:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js --use-labels --object-meta-path ./force-app/main/default/objects
-\`\`\`
+```
 
 ### Customize True and False Icons
 
 Change the icons representing `true` and `false` values:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js --true-icon "✅" --false-icon "❌"
-\`\`\`
+```
 
 ### Using a Configuration File
 
 Run the script with options specified in a configuration file:
 
-\`\`\`bash
+```bash
 node permissionProcessor.js --config config.json
-\`\`\`
+```
 
 ## Metadata Format Support
 
