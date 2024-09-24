@@ -1,24 +1,18 @@
 import ExcelJS from 'exceljs';
 import xml2js from 'xml2js';
-import { Command } from 'commander';
 import { readFileSync } from 'fs';
-import { writeFileSync } from 'fs';
 
 console.time();
-const permissionSetNameREGEX = /\.\/permissionsets\/([^\/]+)\.permissionset-meta\.xml/;
 
+const permissionSetNameREGEX = /\.\/permissionsets\/([^\/]+)\.permissionset-meta\.xml/;
 const paths = ['./permissionsets/System_Admin.permissionset-meta.xml'];
 const workbook = new ExcelJS.Workbook();
-let formattedPermissions;
-let flatPermissions;
-let permissionSetName;
-let currentWorkSheet;
 
-for(const [ixd, path] of paths.entries()) {
-    permissionSetName = permissionSetNameREGEX.exec(path)[1];
-    currentWorkSheet = workbook.addWorksheet(permissionSetName);
-    formattedPermissions = await getFormattedPermissions(path);
-    flatPermissions = getFlatPermissions(formattedPermissions);
+for (const path of paths) {
+    const permissionSetName = permissionSetNameREGEX.exec(path)[1];
+    const currentWorkSheet = workbook.addWorksheet(permissionSetName);
+    const formattedPermissions = await getFormattedPermissions(path);
+    const flatPermissions = getFlatPermissions(formattedPermissions);
 
     currentWorkSheet.addTable({
         name: 'Permissions',
@@ -26,97 +20,76 @@ for(const [ixd, path] of paths.entries()) {
         headerRow: true,
         totalsRow: true,
         style: {
-          theme: 'TableStyleMedium2',
-          showRowStripes: true,
+            theme: 'TableStyleMedium2',
+            showRowStripes: true,
         },
         columns: [
-          {name: 'Object', filterButton: true},
-          {name: 'Field', filterButton: true},
-          {name: 'Edit', filterButton: true},
-          {name: 'Read', filterButton: true},
-          {name: 'Create', filterButton: true},
-          {name: 'Delete', filterButton: true},
-          {name: 'Modify All', filterButton: true},
-          {name: 'View All', filterButton: true},
+            { name: 'Object', filterButton: true },
+            { name: 'Field', filterButton: true },
+            { name: 'Edit', filterButton: true },
+            { name: 'Read', filterButton: true },
+            { name: 'Create', filterButton: true },
+            { name: 'Delete', filterButton: true },
+            { name: 'Modify All', filterButton: true },
+            { name: 'View All', filterButton: true },
         ],
-        rows: flatPermissions
+        rows: flatPermissions,
     });
 }
 
-
 await workbook.xlsx.writeFile('./csv/test3.xlsx');
-
 console.timeEnd();
 
 async function getFormattedPermissions(path) {
-    const data = readFile(path, 'utf8');
+    const data = readFileSync(path, 'utf8');
     const parser = new xml2js.Parser();
 
-    const result = await parser.parseStringPromise(data);
-    const fieldPermissions = result.PermissionSet.fieldPermissions;
-    const objectPermissions = result.PermissionSet.objectPermissions;
-
-    const fieldPermissionsByObject = mapFieldPermissions(fieldPermissions);
-    const objectPermissionsByObject = mapObjectPermissions(objectPermissions);
-    const formattedPermissions = [];
-
-    for(const [key, value] of objectPermissionsByObject.entries()) {
-        formattedPermissions.push({
-            name: key,
-            fieldPermissions: fieldPermissionsByObject.get(key),
-            ...value
-        });
+    try {
+        const result = await parser.parseStringPromise(data);
+        const fieldPermissions = mapFieldPermissions(result.PermissionSet.fieldPermissions || []);
+        const objectPermissions = mapObjectPermissions(result.PermissionSet.objectPermissions || []);
+        return mergePermissions(fieldPermissions, objectPermissions);
+    } catch (err) {
+        console.error('Error parsing XML:', err);
+        return [];
     }
-
-    return formattedPermissions;
 }
 
 function getFlatPermissions(formattedPermissions) {
-    return formattedPermissions.reduce(( rows, formattedPermission ) => {
-        rows.push([formattedPermission.name, '', formattedPermission.allowEdit, formattedPermission.allowRead, 
-            formattedPermission.allowCreate, formattedPermission.allowDelete, formattedPermission.modifyAllRecords, formattedPermission.viewAllRecords]);
-        
-        let fieldPermissions = formattedPermission?.fieldPermissions?.reduce(( rows, fieldPermissions ) => {
-            rows.push(['', fieldPermissions.field, fieldPermissions.editable, fieldPermissions.readable]);
-
-            return rows;
-        }, []);
-
-        if(fieldPermissions != undefined) {
-            rows.push(...fieldPermissions, []);
-        }
-
-        return rows;
-    }, []);
+    return formattedPermissions.flatMap(permission => {
+        const baseRow = [
+            permission.name, '', permission.allowEdit, permission.allowRead, 
+            permission.allowCreate, permission.allowDelete, permission.modifyAllRecords, permission.viewAllRecords
+        ];
+        const fieldRows = permission.fieldPermissions.map(field => [
+            '', field.field, field.editable, field.readable
+        ]);
+        return [baseRow, ...fieldRows, []];
+    });
 }
 
-function mapFieldPermissions(fieldPermissions = []) {
-    return fieldPermissions.reduce(( fieldMap, fieldPermission ) => {
-        const [ object, field ] = fieldPermission.field[0].split('.');
-        if(object == undefined || field == undefined) {
-            return fieldMap;    
-        }
+function mapFieldPermissions(fieldPermissions) {
+    return fieldPermissions.reduce((fieldMap, fieldPermission) => {
+        const [object, field] = fieldPermission.field[0].split('.');
+        if (!object || !field) return fieldMap;
 
-        if(!fieldMap.has(object)) {
+        if (!fieldMap.has(object)) {
             fieldMap.set(object, []);
         }
-
         fieldMap.get(object).push({
             field,
             editable: fieldPermission.editable[0],
-            readable: fieldPermission.readable[0]
+            readable: fieldPermission.readable[0],
         });
 
         return fieldMap;
     }, new Map());
 }
 
-function mapObjectPermissions(objectPermissions = []) {
-    return objectPermissions.reduce((objectMap, objectPermission ) => {
+function mapObjectPermissions(objectPermissions) {
+    return objectPermissions.reduce((objectMap, objectPermission) => {
         const object = objectPermission.object[0];
-        if(object == null || object == undefined) {
-            return objectMap;    
-        }
+        if (!object) return objectMap;
 
         objectMap.set(object, {
             allowCreate: objectPermission.allowCreate[0],
@@ -124,25 +97,23 @@ function mapObjectPermissions(objectPermissions = []) {
             allowEdit: objectPermission.allowEdit[0],
             allowRead: objectPermission.allowRead[0],
             modifyAllRecords: objectPermission.modifyAllRecords[0],
-            viewAllRecords: objectPermission.viewAllRecords[0]
-        })
+            viewAllRecords: objectPermission.viewAllRecords[0],
+        });
 
         return objectMap;
     }, new Map());
 }
 
-function readFile(path, encode = 'utf8') {
-    try {
-        return readFileSync(path, encode);
-    } catch (err) {
-        console.error('Error trying to read file: ', err);
-    }
-}
+function mergePermissions(fieldPermissions, objectPermissions) {
+    const mergedPermissions = [];
 
-function writeFile(path, content, encode = 'utf8') {
-    try {
-        writeFileSync(path, content, encode);
-    } catch (err) {
-        console.error('Error trying to read file: ', err);
+    for (const [objectName, objectPermission] of objectPermissions.entries()) {
+        mergedPermissions.push({
+            name: objectName,
+            fieldPermissions: fieldPermissions.get(objectName) || [],
+            ...objectPermission,
+        });
     }
+
+    return mergedPermissions;
 }
