@@ -35,7 +35,7 @@ Permission Processor CLI is a command-line tool designed to process Salesforce *
 You can install the tool globally using npm:
 
 ```bash
-npm install -g permission-processor-cli
+npm install -g salesforce-documentator
 ```
 
 ## Usage
@@ -50,7 +50,7 @@ sfdoc [options]
 CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report
 
 Options:
-  -V, --version                      Output the version number (1.2.3)
+  -V, --version                      Output the version number (1.2.4)
   -p, --path <path>                  Path to permission files (default: "./permissionsets")
   -g, --glob <pattern>               Glob pattern to select permission files (default: "**/*-meta.xml")
   -o, --output <file>                Output Excel file (default: "./csv/permissions.xlsx")
