@@ -1,16 +1,16 @@
 
 # Permission Processor CLI
 
-Permission Processor CLI is a command-line tool designed to process Salesforce permission set files and generate an Excel report. The report provides a detailed overview of object and field permissions, helping administrators and developers analyze and document permissions effectively.
+Permission Processor CLI is a command-line tool designed to process Salesforce **Permission Sets** and **Profiles** files and generate an Excel report. The report provides a detailed view of object and field permissions, helping administrators and developers effectively analyze and document permissions.
 
 ## Features
 
-- **Process Permission Sets**: Reads Salesforce permission set XML files and extracts object and field permissions.
-- **Generate Excel Reports**: Creates an Excel file with organized tables containing permissions data.
-- **Use Labels Instead of API Names**: Optionally replaces API names with labels for objects and fields for better readability.
-- **Customizable Icons**: Allows customization of icons representing `true` and `false` values in the report.
-- **Configurable Paths**: Supports custom paths for permission sets and metadata files.
-- **Flexible Command-Line Options**: Provides various options to customize the output and behavior of the tool.
+- **Process Permission Sets or Profiles**: Reads Salesforce XML files of Permission Sets or Profiles and extracts object and field permissions.
+- **Generate Excel Reports**: Creates an Excel file with organized tables containing permission data.
+- **Use Labels Instead of API Names**: Optionally replaces API names with object and field labels for better readability.
+- **Customizable Icons**: Allows customization of the icons representing `true` and `false` values in the report.
+- **Configurable Paths**: Supports custom paths for permission and metadata files.
+- **Flexible Command-Line Options**: Provides several options to customize the tool's output and behavior.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ Permission Processor CLI is a command-line tool designed to process Salesforce p
 - [Metadata Format Support](#metadata-format-support)
 - [Handling Standard Objects and Fields](#handling-standard-objects-and-fields)
 - [Notes](#notes)
-- [Contributing](#contributing)
+- [Contributions](#contributions)
 - [License](#license)
 
 ## Requirements
@@ -32,53 +32,40 @@ Permission Processor CLI is a command-line tool designed to process Salesforce p
 
 ## Installation
 
-1. **Clone the Repository or Copy the Script**
+You can install the tool globally using npm:
 
-   Clone this repository or copy the `permissionProcessor.js` script to your local machine.
-
-2. **Install Dependencies**
-
-   Navigate to the directory containing the script and install the required npm packages:
-
-   ```bash
-   npm install commander exceljs xml2js glob chalk
-   ```
-
-3. **Make the Script Executable (Optional)**
-
-   If you want to run the script directly:
-
-   ```bash
-   chmod +x permissionProcessor.js
-   ```
+```bash
+npm install -g permission-processor-cli
+```
 
 ## Usage
 
-The tool can be run using Node.js from the command line. It provides various options to customize its behavior.
+Once installed, you can run the tool from the command line using the `permission-processor` command.
 
 ### Command-Line Options
 
 ```bash
-Usage: permissionProcessor.js [options]
+permission-processor [options]
 
-CLI tool to process permission files and generate an Excel report
+CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report
 
 Options:
   -V, --version                      Output the version number
   -p, --path <path>                  Path to permission files (default: "./permissionsets")
-  -g, --glob <pattern>               Glob pattern to select permission files (default: "**/*.permissionset-meta.xml")
+  -g, --glob <pattern>               Glob pattern to select permission files (default: "**/*-meta.xml")
   -o, --output <file>                Output Excel file (default: "./csv/permissions.xlsx")
   -t, --true-icon <icon>             Icon representing true value (default: "✔")
   -f, --false-icon <icon>            Icon representing false value (default: "✖")
   -c, --config <file>                Configuration file in JSON format
   -l, --use-labels                   Use labels instead of API names (default: false)
   --object-meta-path <path>          Path to custom object metadata files (default: "./objects")
-  --help                             Display help for command
+  --type <type>                      Type of permission files to process ("permissionsets" or "profiles", default: "permissionsets")
+  -h, --help                         Display help for command
 ```
 
 ### Configuration File
 
-You can use a configuration file in JSON format to specify options:
+You can use a JSON configuration file to specify options:
 
 ```json
 {
@@ -88,14 +75,15 @@ You can use a configuration file in JSON format to specify options:
   "trueIcon": "Yes",
   "falseIcon": "No",
   "useLabels": true,
-  "objectMetaPath": "./objects"
+  "objectMetaPath": "./objects",
+  "type": "permissionsets"
 }
 ```
 
-To run the script with a configuration file:
+To run the tool with a configuration file:
 
 ```bash
-node permissionProcessor.js --config config.json
+permission-processor --config config.json
 ```
 
 **Note**: Command-line options override options specified in the configuration file.
@@ -104,18 +92,26 @@ node permissionProcessor.js --config config.json
 
 ### Basic Usage
 
-Process permission sets using default options:
+Process **Permission Sets** using default options:
 
 ```bash
-node permissionProcessor.js
+permission-processor
+```
+
+### Process Profiles
+
+Process **Profiles** by specifying the type:
+
+```bash
+permission-processor --type profiles --path ./profiles
 ```
 
 ### Specify Custom Paths
 
-Process permission sets from a custom directory and output to a specific file:
+Process permission files from a custom directory and generate output in a specific file:
 
 ```bash
-node permissionProcessor.js --path ./myPermissions --output ./output/permissions.xlsx
+permission-processor --path ./myPermissions --output ./output/permissions.xlsx
 ```
 
 ### Use Labels Instead of API Names
@@ -123,28 +119,28 @@ node permissionProcessor.js --path ./myPermissions --output ./output/permissions
 Include labels for objects and fields in the report:
 
 ```bash
-node permissionProcessor.js --use-labels --object-meta-path ./force-app/main/default/objects
+permission-processor --use-labels --object-meta-path ./force-app/main/default/objects
 ```
 
 ### Customize True and False Icons
 
-Change the icons representing `true` and `false` values:
+Change the icons that represent `true` and `false` values:
 
 ```bash
-node permissionProcessor.js --true-icon "✅" --false-icon "❌"
+permission-processor --true-icon "✅" --false-icon "❌"
 ```
 
-### Using a Configuration File
+### Use a Configuration File
 
-Run the script with options specified in a configuration file:
+Run the tool with options specified in a configuration file:
 
 ```bash
-node permissionProcessor.js --config config.json
+permission-processor --config config.json
 ```
 
 ## Metadata Format Support
 
-The tool supports both **Metadata API format** and **SFDX source format** for Salesforce metadata files.
+The tool supports both **Metadata API Format** and **SFDX Source Format** for Salesforce metadata files.
 
 - **Metadata API Format**: Custom object metadata files contain field definitions within them.
 - **SFDX Source Format**: Custom fields are stored in separate files under the `fields` directory within each object folder.
@@ -153,20 +149,20 @@ Ensure that the `--object-meta-path` option points to the correct directory cont
 
 ## Handling Standard Objects and Fields
 
-Standard Salesforce objects and fields may not have complete metadata files in your project, which can lead to parsing issues.
+Standard Salesforce objects and fields may not have complete metadata files in your project, which could cause parsing issues.
 
-The script includes a mechanism to skip standard objects and fields during label collection to avoid warnings.
+The tool includes a mechanism to skip standard objects and fields during label collection to avoid warnings.
 
-If you want to customize labels for standard objects and fields, you can modify the script to include a hardcoded mapping.
+If you want to customize labels for standard objects and fields, you can modify the tool to include a hardcoded mapping.
 
 ## Notes
 
-- **Default Behavior**: If the script cannot find a label for an object or field, it defaults to using the API name.
-- **Paths and Glob Patterns**: Ensure that paths and glob patterns are correct and use forward slashes (`/`) to maintain cross-platform compatibility.
-- **Excel Worksheet Limitations**: Worksheet names are sanitized to remove invalid characters and are truncated to 31 characters to comply with Excel's limitations.
-- **Cross-Platform Compatibility**: The script has been designed to work on Windows, macOS, and Linux systems.
+- **Default Behavior**: If the tool cannot find a label for an object or field, it defaults to the API name.
+- **Paths and Glob Patterns**: Ensure paths and glob patterns are correct and use forward slashes (`/`) for cross-platform compatibility.
+- **Excel Spreadsheet Limitations**: Sheet names are sanitized to remove invalid characters and truncated to 31 characters to comply with Excel limitations.
+- **Cross-Platform Compatibility**: The tool is designed to work on Windows, macOS, and Linux systems.
 
-## Contributing
+## Contributions
 
 Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
 
