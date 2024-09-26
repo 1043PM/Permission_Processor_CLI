@@ -13,16 +13,17 @@ import chalk from 'chalk';
 const program = new Command();
 
 program
-  .version('1.1.0')
-  .description('CLI tool to process permission files and generate an Excel report')
+  .version('1.2.1')
+  .description('CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report')
   .option('-p, --path <path>', 'Path to permission files', './permissionsets')
-  .option('-g, --glob <pattern>', 'Glob pattern to select permission files', '**/*.permissionset-meta.xml')
+  .option('-g, --glob <pattern>', 'Glob pattern to select permission files', '**/*-meta.xml')
   .option('-o, --output <file>', 'Output Excel file', './csv/permissions.xlsx')
   .option('-t, --true-icon <icon>', 'Icon representing true value', '✔')
   .option('-f, --false-icon <icon>', 'Icon representing false value', '✖')
   .option('-c, --config <file>', 'Configuration file in JSON format')
   .option('-l, --use-labels', 'Use labels instead of API names', false)
   .option('--object-meta-path <path>', 'Path to custom object metadata files', './objects')
+  .option('--type <type>', 'Type of permission files to process (permissionsets or profiles)', 'permissionsets')
   .parse(process.argv);
 
 // Main function
@@ -62,6 +63,13 @@ program
       }
     }
 
+    // Validate the 'type' option
+    const validTypes = ['permissionsets', 'profiles'];
+    if (!validTypes.includes(finalOptions.type.toLowerCase())) {
+      console.error(chalk.red(`Invalid type specified: ${finalOptions.type}. Valid options are 'permissionsets' or 'profiles'.`));
+      process.exit(1);
+    }
+
     // Normalize paths to use forward slashes
     const normalizedPath = finalOptions.path.replace(/\\/g, '/');
     const normalizedGlob = finalOptions.glob.replace(/\\/g, '/');
@@ -71,14 +79,22 @@ program
 
     console.log(`Searching for permission files with pattern: ${filesPattern}`);
 
-    const permissionFiles = await glob(filesPattern);
+    const allPermissionFiles = await glob(filesPattern);
+
+    // Filter files based on the selected type
+    let permissionFiles = [];
+    if (finalOptions.type.toLowerCase() === 'permissionsets') {
+      permissionFiles = allPermissionFiles.filter(file => file.endsWith('.permissionset-meta.xml'));
+    } else if (finalOptions.type.toLowerCase() === 'profiles') {
+      permissionFiles = allPermissionFiles.filter(file => file.endsWith('.profile-meta.xml'));
+    }
 
     if (permissionFiles.length === 0) {
-      console.error(chalk.yellow(`No files found matching the pattern: ${filesPattern}`));
+      console.error(chalk.yellow(`No ${finalOptions.type} found matching the pattern: ${filesPattern}`));
       process.exit(1);
     }
 
-    console.log(chalk.green(`Found ${permissionFiles.length} permission files.`));
+    console.log(chalk.green(`Found ${permissionFiles.length} ${finalOptions.type}.`));
 
     // Initialize mappings for labels if needed
     let objectLabels = new Map();
@@ -95,17 +111,19 @@ program
 
     console.time('Execution Time');
 
+    // Process Permission Files
     for (const filePath of permissionFiles) {
-      const rawName = path.basename(filePath, '.permissionset-meta.xml');
-      const permissionSetName = sanitizeSheetName(rawName);
-      console.log(chalk.blue(`Processing file: ${permissionSetName}`));
+      const rawName = path.basename(filePath, path.extname(filePath));
+      const permissionName = sanitizeSheetName(rawName);
+      console.log(chalk.blue(`Processing ${finalOptions.type.slice(0, -1)}: ${permissionName}`));
 
       // Get formatted permissions
-      const formattedPermissions = await getFormattedPermissions(filePath);
+      const fileType = finalOptions.type.toLowerCase() === 'permissionsets' ? 'PermissionSet' : 'Profile';
+      const formattedPermissions = await getFormattedPermissions(filePath, fileType);
 
       // Validate if permissions were obtained
       if (formattedPermissions.length === 0) {
-        console.warn(chalk.yellow(`No permissions found in file: ${permissionSetName}`));
+        console.warn(chalk.yellow(`No permissions found in ${finalOptions.type.slice(0, -1)}: ${permissionName}`));
         continue;
       }
 
@@ -113,30 +131,10 @@ program
       const flatPermissions = getFlatPermissions(formattedPermissions, finalOptions, objectLabels, fieldLabels);
 
       // Add a new worksheet to the Excel workbook
-      const currentWorkSheet = workbook.addWorksheet(permissionSetName);
+      const currentWorkSheet = workbook.addWorksheet(permissionName);
 
       // Add the permissions table to the worksheet
-      currentWorkSheet.addTable({
-        name: 'Permissions',
-        ref: 'A1',
-        headerRow: true,
-        totalsRow: false,
-        style: {
-          theme: 'TableStyleMedium2',
-          showRowStripes: true,
-        },
-        columns: [
-          { name: 'Object', filterButton: true },
-          { name: 'Field', filterButton: true },
-          { name: 'Edit', filterButton: true },
-          { name: 'Read', filterButton: true },
-          { name: 'Create', filterButton: true },
-          { name: 'Delete', filterButton: true },
-          { name: 'Modify All', filterButton: true },
-          { name: 'View All', filterButton: true },
-        ],
-        rows: flatPermissions,
-      });
+      addPermissionsTable(currentWorkSheet, flatPermissions);
     }
 
     // Validate or create the output directory
@@ -158,7 +156,7 @@ program
 })();
 
 // Function to get formatted permissions from a file
-async function getFormattedPermissions(filePath) {
+async function getFormattedPermissions(filePath, fileType) {
   try {
     // Read the XML file
     const data = await fs.readFile(filePath, 'utf8');
@@ -167,9 +165,16 @@ async function getFormattedPermissions(filePath) {
     // Parse the XML content
     const result = await parser.parseStringPromise(data);
 
+    // Determine root element based on file type
+    const rootElement = result.PermissionSet || result.Profile;
+    if (!rootElement) {
+      console.warn(chalk.yellow(`No permissions found in file: ${filePath}`));
+      return [];
+    }
+
     // Map field and object permissions
-    const fieldPermissions = mapFieldPermissions(result.PermissionSet.fieldPermissions || []);
-    const objectPermissions = mapObjectPermissions(result.PermissionSet.objectPermissions || []);
+    const fieldPermissions = mapFieldPermissions(rootElement.fieldPermissions || []);
+    const objectPermissions = mapObjectPermissions(rootElement.objectPermissions || []);
 
     // Merge permissions and return the result
     return mergePermissions(fieldPermissions, objectPermissions);
@@ -223,7 +228,8 @@ function formatIcon(value, options) {
 // Function to map field permissions
 function mapFieldPermissions(fieldPermissions) {
   return fieldPermissions.reduce((fieldMap, fieldPermission) => {
-    const [object, field] = fieldPermission.field[0].split('.');
+    const fieldName = fieldPermission.field[0];
+    const [object, field] = fieldName.split('.');
     if (!object || !field) return fieldMap;
 
     if (!fieldMap.has(object)) {
@@ -231,8 +237,8 @@ function mapFieldPermissions(fieldPermissions) {
     }
     fieldMap.get(object).push({
       field,
-      editable: fieldPermission.editable[0],
-      readable: fieldPermission.readable[0],
+      editable: fieldPermission.editable ? fieldPermission.editable[0] : 'false',
+      readable: fieldPermission.readable ? fieldPermission.readable[0] : 'false',
     });
 
     return fieldMap;
@@ -246,12 +252,12 @@ function mapObjectPermissions(objectPermissions) {
     if (!object) return objectMap;
 
     objectMap.set(object, {
-      allowCreate: objectPermission.allowCreate[0],
-      allowDelete: objectPermission.allowDelete[0],
-      allowEdit: objectPermission.allowEdit[0],
-      allowRead: objectPermission.allowRead[0],
-      modifyAllRecords: objectPermission.modifyAllRecords[0],
-      viewAllRecords: objectPermission.viewAllRecords[0],
+      allowCreate: objectPermission.allowCreate ? objectPermission.allowCreate[0] : 'false',
+      allowDelete: objectPermission.allowDelete ? objectPermission.allowDelete[0] : 'false',
+      allowEdit: objectPermission.allowEdit ? objectPermission.allowEdit[0] : 'false',
+      allowRead: objectPermission.allowRead ? objectPermission.allowRead[0] : 'false',
+      modifyAllRecords: objectPermission.modifyAllRecords ? objectPermission.modifyAllRecords[0] : 'false',
+      viewAllRecords: objectPermission.viewAllRecords ? objectPermission.viewAllRecords[0] : 'false',
     });
 
     return objectMap;
@@ -268,6 +274,22 @@ function mergePermissions(fieldPermissions, objectPermissions) {
       fieldPermissions: fieldPermissions.get(objectName) || [],
       ...objectPermission,
     });
+  }
+
+  // Include field permissions for objects that may not have object-level permissions
+  for (const [objectName, fields] of fieldPermissions.entries()) {
+    if (!objectPermissions.has(objectName)) {
+      mergedPermissions.push({
+        name: objectName,
+        fieldPermissions: fields,
+        allowCreate: 'false',
+        allowDelete: 'false',
+        allowEdit: 'false',
+        allowRead: 'false',
+        modifyAllRecords: 'false',
+        viewAllRecords: 'false',
+      });
+    }
   }
 
   return mergedPermissions;
@@ -338,4 +360,34 @@ function sanitizeSheetName(name) {
   }
 
   return sanitized;
+}
+
+// Function to add permissions table to a worksheet
+function addPermissionsTable(worksheet, flatPermissions) {
+  worksheet.addTable({
+    name: 'Permissions',
+    ref: 'A1',
+    headerRow: true,
+    totalsRow: false,
+    style: {
+      theme: 'TableStyleMedium2',
+      showRowStripes: true,
+    },
+    columns: [
+      { name: 'Object', filterButton: true },
+      { name: 'Field', filterButton: true },
+      { name: 'Edit', filterButton: true },
+      { name: 'Read', filterButton: true },
+      { name: 'Create', filterButton: true },
+      { name: 'Delete', filterButton: true },
+      { name: 'Modify All', filterButton: true },
+      { name: 'View All', filterButton: true },
+    ],
+    rows: flatPermissions,
+  });
+
+  // Adjust column widths
+  worksheet.columns.forEach(column => {
+    column.width = 20;
+  });
 }
