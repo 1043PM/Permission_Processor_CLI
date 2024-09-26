@@ -1,6 +1,6 @@
 {
   "name": "salesforce-documentator",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Salesforce npm tool to create automatic documentation",
   "main": "index.js",
   "type": "module",
