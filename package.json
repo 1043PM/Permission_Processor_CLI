@@ -1,8 +1,12 @@
 {
   "name": "salesforce-documentator",
   "version": "1.2.2",
-  "description": "salesforce npm tool to create automatic documentation",
+  "description": "Salesforce npm tool to create automatic documentation",
   "main": "index.js",
+  "type": "module",
+  "bin": {
+    "sfdoc": "./index.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

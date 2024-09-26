@@ -13,7 +13,7 @@ import chalk from 'chalk';
 const program = new Command();
 
 program
-  .version('1.2.1')
+  .version('1.2.3')
   .description('CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report')
   .option('-p, --path <path>', 'Path to permission files', './permissionsets')
   .option('-g, --glob <pattern>', 'Glob pattern to select permission files', '**/*-meta.xml')

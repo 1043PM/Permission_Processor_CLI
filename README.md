@@ -40,17 +40,17 @@ npm install -g permission-processor-cli
 
 ## Usage
 
-Once installed, you can run the tool from the command line using the `permission-processor` command.
+Once installed, you can run the tool from the command line using the `sfdoc` command.
 
 ### Command-Line Options
 
 ```bash
-permission-processor [options]
+sfdoc [options]
 
 CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report
 
 Options:
-  -V, --version                      Output the version number
+  -V, --version                      Output the version number (1.2.3)
   -p, --path <path>                  Path to permission files (default: "./permissionsets")
   -g, --glob <pattern>               Glob pattern to select permission files (default: "**/*-meta.xml")
   -o, --output <file>                Output Excel file (default: "./csv/permissions.xlsx")
@@ -83,7 +83,7 @@ You can use a JSON configuration file to specify options:
 To run the tool with a configuration file:
 
 ```bash
-permission-processor --config config.json
+sfdoc --config config.json
 ```
 
 **Note**: Command-line options override options specified in the configuration file.
@@ -95,7 +95,7 @@ permission-processor --config config.json
 Process **Permission Sets** using default options:
 
 ```bash
-permission-processor
+sfdoc
 ```
 
 ### Process Profiles
@@ -103,7 +103,7 @@ permission-processor
 Process **Profiles** by specifying the type:
 
 ```bash
-permission-processor --type profiles --path ./profiles
+sfdoc --type profiles --path ./profiles
 ```
 
 ### Specify Custom Paths
@@ -111,7 +111,7 @@ permission-processor --type profiles --path ./profiles
 Process permission files from a custom directory and generate output in a specific file:
 
 ```bash
-permission-processor --path ./myPermissions --output ./output/permissions.xlsx
+sfdoc --path ./myPermissions --output ./output/permissions.xlsx
 ```
 
 ### Use Labels Instead of API Names
@@ -119,7 +119,7 @@ permission-processor --path ./myPermissions --output ./output/permissions.xlsx
 Include labels for objects and fields in the report:
 
 ```bash
-permission-processor --use-labels --object-meta-path ./force-app/main/default/objects
+sfdoc --use-labels --object-meta-path ./force-app/main/default/objects
 ```
 
 ### Customize True and False Icons
@@ -127,7 +127,7 @@ permission-processor --use-labels --object-meta-path ./force-app/main/default/ob
 Change the icons that represent `true` and `false` values:
 
 ```bash
-permission-processor --true-icon "✅" --false-icon "❌"
+sfdoc --true-icon "✅" --false-icon "❌"
 ```
 
 ### Use a Configuration File
@@ -135,7 +135,7 @@ permission-processor --true-icon "✅" --false-icon "❌"
 Run the tool with options specified in a configuration file:
 
 ```bash
-permission-processor --config config.json
+sfdoc --config config.json
 ```
 
 ## Metadata Format Support
