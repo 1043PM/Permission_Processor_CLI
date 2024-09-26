@@ -50,10 +50,10 @@ sfdoc [options]
 CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report
 
 Options:
-  -V, --version                      Output the version number (1.2.4)
+  -V, --version                      Output the version number (1.2.5)
   -p, --path <path>                  Path to permission files (default: "./permissionsets")
   -g, --glob <pattern>               Glob pattern to select permission files (default: "**/*-meta.xml")
-  -o, --output <file>                Output Excel file (default: "./csv/permissions.xlsx")
+  -o, --output <file>                Output Excel file (default: "./sfdocs/permissions.xlsx")
   -t, --true-icon <icon>             Icon representing true value (default: "✔")
   -f, --false-icon <icon>            Icon representing false value (default: "✖")
   -c, --config <file>                Configuration file in JSON format
@@ -71,7 +71,7 @@ You can use a JSON configuration file to specify options:
 {
   "path": "./permissionsets",
   "glob": "**/*.permissionset-meta.xml",
-  "output": "./csv/permissions.xlsx",
+  "output": "./sfdocs/permissions.xlsx",
   "trueIcon": "Yes",
   "falseIcon": "No",
   "useLabels": true,

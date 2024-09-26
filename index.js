@@ -8,16 +8,19 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 import chalk from 'chalk';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const packageJson = require('./package.json');
 
 // Program configuration using 'commander'
 const program = new Command();
 
 program
-  .version('1.2.3')
+  .version(packageJson.version)
   .description('CLI tool to process permission files (Permission Sets or Profiles) and generate an Excel report')
   .option('-p, --path <path>', 'Path to permission files', './permissionsets')
   .option('-g, --glob <pattern>', 'Glob pattern to select permission files', '**/*-meta.xml')
-  .option('-o, --output <file>', 'Output Excel file', './csv/permissions.xlsx')
+  .option('-o, --output <file>', 'Output Excel file', './sfdocs/permissions.xlsx')
   .option('-t, --true-icon <icon>', 'Icon representing true value', '✔')
   .option('-f, --false-icon <icon>', 'Icon representing false value', '✖')
   .option('-c, --config <file>', 'Configuration file in JSON format')
